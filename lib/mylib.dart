@@ -127,15 +127,17 @@ scanWallets(){
    
 }
 
-String exportPrivateKey(){
+String exportPrivateKey(String walletID,{String password = "12345678..."}){
 
   final parm =  ExportPrivateKeyParam();
-  parm.id = "80f4f358-57c4-47f9-8bef-5e3f68580f23";
-  parm.password = "12345678...";
-  parm.chainType = "ETH";
+  parm.id = walletID;
+  parm.password = password;
+  parm.chainType = "TRON";
+  parm.network = "";
+  parm.path = "m/44'/195'/0'/0/0";
   
   final action = TcxAction();
-  action.method = "export_private_key";
+  action.method = "private_key_store_export";
   var paramAny = GoogleAny.Any();
   paramAny.typeUrl = "imtoken";
   paramAny.value = parm.writeToBuffer();
@@ -156,21 +158,59 @@ String exportPrivateKey(){
   
   final lastError = getLastErrorMessage();
   final lastErrorHex = Utf8.fromUtf8(lastError);
+  Response response = Response.fromBuffer(HEX.decode(lastErrorHex));
+  print("response: ${response.error}");
 
-  List<String> splitted = [];
-   for (int i = 0; i < lastErrorHex.length; i = i + 2) {
-    splitted.add(lastErrorHex.substring(i, i + 2));
-  }
-  String ascii = List.generate(splitted.length,
-      (i) => String.fromCharCode(int.parse(splitted[i], radix: 16))).join();
 
-  print("lastError: $ascii");
   final greetingStr = Utf8.fromUtf8(resultPointer);
-  print("- Response string:  ${greetingStr.toString()}");
   final callResult = KeystoreCommonExportResult.fromBuffer(HEX.decode(greetingStr));
   print("callResult:${callResult.value}");
   return callResult.value;
 }
+
+createWallet(){
+  final param =  HdStoreCreateParam();
+  param.name = "test1";
+  param.password = "12345678...";
+  
+  
+  final action = TcxAction();
+  action.method = "hd_store_create";
+  var paramAny = GoogleAny.Any();
+  paramAny.typeUrl = "imtoken";
+  paramAny.value = param.writeToBuffer();
+
+  action.param = paramAny;
+  
+  print("action:${action.toString()}");
+ 
+
+ final actionName = HEX.encode(action.writeToBuffer());
+ final actionNameUtf8 = Utf8.toUtf8(actionName);
+  
+  // print("- Calling rust with actionName:  $actionName");
+  clearErr();
+  // final actionUtf8 = Utf8.toUtf8("0a0f68645f73746f72655f63726561746512230a07696d746f6b656e12180a11496e7365637572652050613535773072641a03616161");
+  // The actual native call
+  final resultPointer = callTcxApi(actionNameUtf8);
+  
+  final lastError = getLastErrorMessage();
+  final lastErrorHex = Utf8.fromUtf8(lastError);
+  if(lastErrorHex.isEmpty){
+    return;
+  }
+  Response response = Response.fromBuffer(HEX.decode(lastErrorHex));
+  print("response: ${response.error}");
+
+ 
+
+  final greetingStr = Utf8.fromUtf8(resultPointer);
+  final callResult = KeystoreCommonExportResult.fromBuffer(HEX.decode(greetingStr));
+  print("callResult:${callResult.value}");
+  return callResult.value;
+}
+
+
 
 Future<String> nativeGreeting(String name) async {
   if (nativeRustLib == null)
@@ -181,9 +221,10 @@ Future<String> nativeGreeting(String name) async {
 
   await initRustNative();
 
-  scanWallets();
+  // createWallet();
+  // scanWallets();
 
-
-  String privateKey = exportPrivateKey();
+  final String password1 = "Insecure Pa55w0rd";
+  String privateKey = exportPrivateKey("8a4bcd93-6daa-430b-b603-1bb0626e0da3",password: "12345678...");
   return privateKey;
 }
